@@ -48,6 +48,17 @@ class Agent(nn.Module):
             nn.Tanh(),
             layer_init(nn.Linear(64, envs.single_action_space.n), std=0.01),
         )
+    
+    def get_value(self, x):
+        return self.critic(x)
+    
+    def get_action_and_value(self, x, action=None):
+        logits = self.actor(x)
+        prob = Categorical(logits=logits)
+        if action is None:
+            action = prob.sample()
+        return action, prob.log_prob(action), prob.entropy(), self.critic(x)
+
 
 def parse_args():
     # fmt: off
@@ -80,8 +91,11 @@ def parse_args():
         help="the number of parallel game environments")
     parser.add_argument("--num-steps", type=int, default=128,
         help="the number of steps to run for each environment per policy rollout")
+    parser.add_argument("--anneal-lr", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+        help="Toggle learning rate annealing for policy and value networks")
 
     args= parser.parse_args()
+    args.batch_size = int(args.num_envs * args.num_steps)
     return args
 
 if __name__ == "__main__":
@@ -112,8 +126,6 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
 
-
-
     # envs = gym.vector.SyncVectorEnv([make_env(args.gym_id)])
     # observation = envs.reset()
     # for _ in range(200):
@@ -133,11 +145,11 @@ if __name__ == "__main__":
         [make_env(args.gym_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
     )
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
-    print("envs.single_observation_space.shape", envs.single_observation_space.shape)
-    print("envs.single_action_space.n", envs.single_action_space.n)
+    # print("envs.single_observation_space.shape", envs.single_observation_space.shape)
+    # print("envs.single_action_space.n", envs.single_action_space.n)
 
     agent = Agent(envs).to(device)
-    print(agent)
+    # print(agent)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -151,3 +163,28 @@ if __name__ == "__main__":
     start_time = time.time()
     next_obs = torch.Tensor(envs.reset()).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
+    num_updates = args.total_timesteps // args.batch_size
+    # print("num_updates", num_updates)
+    # print("next_obs.shape", next_obs.shape)
+    # print("agent.get_value(next_obs)", agent.get_value(next_obs))
+    # print("agent.get_value(next_obs).shape", agent.get_value(next_obs).shape)
+
+
+    for update in range(1, num_updates + 1):
+        # Annealing the rate if instructed to do so.
+        if args.anneal_lr:
+            frac = 1.0 - (update - 1.0) / num_updates
+            lrnow = frac * args.learning_rate
+            optimizer.param_groups[0]["lr"] = lrnow
+
+        for step in range(0, args.num_steps):
+            global_step += 1 * args.num_envs
+            obs[step] = next_obs
+            dones[step] = next_done
+
+            # ALGO LOGIC: action logic
+            with torch.no_grad():
+                action, logprob, _, value = agent.get_action_and_value(next_obs)
+                values[step] = value.flatten()
+            actions[step] = action
+            logprobs[step] = logprob
