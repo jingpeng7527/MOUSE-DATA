@@ -1,0 +1,9 @@
+.history
+# /Mouse-Data-Old/positions.csv
+/videos
+/runs
+**/myenv/
+/wandb/
+**/.DS_Store/
+**/*.csv
+.DS_Store

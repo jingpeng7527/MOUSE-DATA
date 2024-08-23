@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "mouse-data"
+version = "0.1.0"
+description = ""
+authors = ["Iris P <jingpeng7527@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+torch = "^2.4.0"
+stable-baselines3 = "^2.3.2"
+tensorboard = "^2.17.1"
+wandb = "^0.17.7"
+numpy = "1.23.5"
+moviepy = "^1.0.3"
+pygame = "^2.6.0"
+gym = "^0.25.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
