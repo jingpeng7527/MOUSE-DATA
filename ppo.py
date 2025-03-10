@@ -1,6 +1,5 @@
 import argparse
 import os
-import random
 import time
 from distutils.util import strtobool
 
@@ -11,6 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions.categorical import Categorical
 from torch.utils.tensorboard import SummaryWriter
+import secrets
 
 
 def make_env(gym_id, seed, idx, capture_video, run_name):
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
-    random.seed(args.seed)
+    secrets.SystemRandom().seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
